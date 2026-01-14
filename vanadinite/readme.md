@@ -1,0 +1,2 @@
+1. Program dimulai dengan perintah cargo run --bin vanadinitev1.
+2. Program akan memberikan menu / pilihan untuk memilih role atau bagaimana kode program akan dijalankan (Bootstrap Node, Reguler Node, dan juga Client Node).

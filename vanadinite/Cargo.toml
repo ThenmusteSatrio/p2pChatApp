@@ -1,0 +1,40 @@
+[package]
+name = "vanadinitev1"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "0.4.20"
+libp2p-allow-block-list = "0.5.0"
+tokio = { version = "1.44.1", features = ["full"] }
+serde = { version = "1.0.192", features = ["derive"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+libp2p = { version = "0.55.0", features = [
+    "kad",
+    "gossipsub",
+    "tcp",
+    "noise",
+    "yamux",
+    "websocket",
+    "tokio",
+    "identify",
+    "request-response",
+    "cbor",
+    "tls",
+    "dns",
+    "macros",
+    "serde",
+] }
+tracing = "0.1.41"
+rand = "0.9.0"
+chrono = "0.4.41"
+sha2 = "0.10.9"
+serde_json = "=1.0.1"
+fs = "0.0.5"
+schnorrkel = { version = "0.11.4", features = ["serde"]}
+# rand_core = "0.6"
+merlin = "3.0.0"
+rand_chacha = "0.9.0"
+hex = "0.4.3"

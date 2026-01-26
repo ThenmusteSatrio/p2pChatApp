@@ -1,16 +1,11 @@
 use libp2p::identity;
-use schnorrkel::MiniSecretKey;
 
 
-pub fn generate_ed25519_key_id() -> (libp2p::identity::Keypair, schnorrkel::Keypair){
-    let ed_key = identity::ed25519::Keypair::generate();
-    let local_key: identity::Keypair = identity::Keypair::from(ed_key.clone());
+pub fn generate_ed25519_key_id() -> (libp2p::identity::Keypair){
+    let bytes = [250, 117, 135, 27, 36, 145, 93, 153, 158, 82, 26, 83, 0, 230, 57, 134, 169, 27, 211, 5, 36, 233, 32, 222, 140, 229, 119, 87, 255, 83, 217, 89];
+    let sk = libp2p::identity::ed25519::SecretKey::try_from_bytes(bytes).expect("invalid key");
+    let kp = identity::ed25519::Keypair::from(sk);
+    let local_key = identity::Keypair::from(kp);
 
-    let secret = ed_key.secret();
-
-    let mini = MiniSecretKey::from_bytes(secret.as_ref()).unwrap();
-    let schnorrkel_key: schnorrkel::Keypair =
-        mini.expand_to_keypair(schnorrkel::ExpansionMode::Ed25519);
-
-    (local_key, schnorrkel_key)
+    (local_key)
 }

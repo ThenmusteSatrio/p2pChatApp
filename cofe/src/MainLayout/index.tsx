@@ -20,15 +20,15 @@ export default function MainLayout() {
   }
 
   useEffect(() => {
-    console.log(peers);
-  }, [peers]);
-
-  useEffect(() => {
     async function getPeerId() {
       setPeerId(await invoke("get_self_peer_id"));
     }
     getPeerId();
   }, []);
+
+  useEffect(() => {
+    find_peer(peerId);
+  }, [peerId])
 
   async function getHistoryMessage(peerId: string) {
     setMessages(await invoke("get_history_message", { peerId }));
@@ -46,13 +46,9 @@ export default function MainLayout() {
     currentPeerRef.current = currentPeer;
   }, [currentPeer]);
 
-  useEffect(() => {
-    console.log(messages[0]);
-  }, [messages])
 
   useEffect(() => {
       const unlistenMsg = listen("message-received", (event) => {
-        console.log(event);
         getHistoryMessage(currentPeerRef.current);
       });
 
@@ -60,6 +56,7 @@ export default function MainLayout() {
       unlistenMsg.then((f) => f());
     };
   }, [])
+
 
 
 

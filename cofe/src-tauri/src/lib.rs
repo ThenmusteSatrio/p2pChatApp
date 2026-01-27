@@ -13,6 +13,7 @@ use tauri::{Emitter, Manager};
 use tokio::sync::{RwLock, mpsc};
 use tracing::{warn};
 
+use crate::config::Config;
 use crate::message::chat::chat_store::{chat_dir, load_chat, save_chat};
 use crate::security::security::{ derive_storage_key, load_salt_from_disk, load_storage_key, save_salt_to_disk, save_storage_key};
 use crate::node_identity::identity::{ load_or_create_identity};
@@ -26,6 +27,7 @@ mod message;
 mod node_identity;
 mod p2p;
 mod security;
+mod config;
 
 static APP_DATA_DIR: OnceCell<PathBuf> = OnceCell::new();
 const SERVICE: &str = "vanadinite-chat";
@@ -109,12 +111,12 @@ async fn on_message_received(
 
 
 fn start(app: &tauri::AppHandle) {
+    let cfg = Config::load().unwrap();
     let local_key = load_or_create_identity();
     let entry = Entry::new(SERVICE, KEY_NAME).unwrap();
     // let storage_key = derive_storage_key(&local_key);
     
-    let mut p2p = P2P::new(local_key.clone());
-    log::info!("created p2p");
+    let mut p2p = P2P::new(local_key.clone(), cfg).expect("failed to create P2P");;
     
     let (tx, mut rx) = mpsc::channel::<P2PCommand>(32);
     let (event_tx, mut event_rx) = mpsc::channel::<P2PEvent>(32);
@@ -177,6 +179,21 @@ fn start(app: &tauri::AppHandle) {
 
 
 // Command
+
+
+#[tauri::command]
+fn load_config()  -> Result<Config, String> {
+    Config::load().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn save_config(cfg: Config) -> Result<(), String> {
+    cfg.validate()?;
+    cfg.save().map_err(|e| e.to_string())
+}
+
+
+
 #[tauri::command]
 async fn send_greet(state: tauri::State<'_, AppState>, name: String) -> Result<String, String> {
     state
@@ -325,7 +342,18 @@ pub fn run() {
                 )) 
                 .build(),
         )
-        .invoke_handler(tauri::generate_handler![send_greet, find_peer, send_message, setup_password, unlock_app, get_self_peer_id, get_history_message, get_first_run])
+        .invoke_handler(tauri::generate_handler![
+            load_config,
+            save_config,
+            send_greet, 
+            find_peer, 
+            send_message, 
+            setup_password, 
+            unlock_app, 
+            get_self_peer_id, 
+            get_history_message, 
+            get_first_run
+            ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

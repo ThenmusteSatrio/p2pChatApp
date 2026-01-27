@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::time::Duration;
 
 use libp2p::kad;
@@ -10,6 +11,7 @@ use libp2p::{
     tcp, yamux, Multiaddr, PeerId, StreamProtocol, Swarm, SwarmBuilder,
 };
 
+use crate::config::{Config, IpVersion};
 use crate::{
     message::message::{GreetRequest, GreetResponse},
     p2p::{
@@ -17,19 +19,48 @@ use crate::{
     },
 };
 
+pub struct BootstrapNode {
+    pub addr: Multiaddr,
+    pub peer_id: PeerId,
+}
+
 pub struct P2P {
     local_key: identity::Keypair,
-    bootstrap_node_addr: Option<String>,
+    cfg: Config,
+    bootstrap_node_addr: Option<BootstrapNode>,
 }
 
 impl P2P {
-    pub fn new(local_key: identity::Keypair) -> Self {
-        Self {
-            local_key: local_key,
-            bootstrap_node_addr: Some(
-                "12D3KooWJ5VBBryqyPrBXAd28fk9KsH3pXdiXshH6gpsLWWi6WiH".to_string(),
-            ),
-        }
+      pub fn new(local_key: identity::Keypair, cfg: Config) -> Result<Self, Box<dyn Error>> {
+
+        let bootstrap = match (
+            &cfg.network.bootstrap_ip,
+            cfg.network.bootstrap_port,
+            &cfg.network.bootstrap_peer_id,
+        ) {
+            (Some(ip), Some(port), Some(peer_id_str)) => {
+                let peer_id = peer_id_str.parse::<PeerId>()?;
+
+                let addr_str = match cfg.network.ip_version {
+                    IpVersion::Ipv4 => {
+                        format!("/ip4/{}/tcp/{}/ws/p2p/{}", ip, port, peer_id)
+                    }
+                    IpVersion::Ipv6 => {
+                        format!("/ip6/{}/tcp/{}/ws/p2p/{}", ip, port, peer_id)
+                    }
+                };
+
+                let addr = addr_str.parse::<Multiaddr>()?;
+                Some(BootstrapNode { addr, peer_id })
+            }
+            _ => None,
+        };
+
+        Ok(Self {
+            local_key,
+            cfg,
+            bootstrap_node_addr: bootstrap,
+        })
     }
 
     pub async fn create_p2p(&mut self) -> Result<Swarm<AgentBehaviour>, Box<dyn std::error::Error>> {
@@ -80,20 +111,26 @@ impl P2P {
             .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(Duration::from_secs(30)))
             .build();
 
-        swarm
-            .listen_on("/ip4/0.0.0.0/tcp/0".parse().unwrap())
-            .unwrap();
+            let listen_addr = match self.cfg.network.ip_version {
+                IpVersion::Ipv4 => format!(
+                    "/ip4/{}/tcp/{}",
+                    self.cfg.network.listen_ip,
+                    self.cfg.network.listen_port
+                ),
+                IpVersion::Ipv6 => format!(
+                    "/ip6/{}/tcp/{}",
+                    self.cfg.network.listen_ip,
+                    self.cfg.network.listen_port
+                ),
+            };
 
-        let peer_id = self
-            .bootstrap_node_addr
-            .clone()
-            .unwrap()
-            .parse::<PeerId>()
-            .map_err(|_| "Peer ID is invalid")
-            .unwrap();
-        let remote: Multiaddr = format!("/ip4/127.0.0.1/tcp/8000/ws/p2p/{}", peer_id).parse()?;
+            swarm.listen_on(listen_addr.parse()?)?;
 
-        swarm.dial(remote)?;
+
+        if let Some(bootstrap) = &self.bootstrap_node_addr {
+            swarm.dial(bootstrap.addr.clone())?;
+        }
+
 
         Ok(swarm)
     }
